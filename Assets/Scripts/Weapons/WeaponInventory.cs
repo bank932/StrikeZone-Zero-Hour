@@ -57,6 +57,19 @@ namespace StrikeZone.Weapons
             }
         }
 
+        public bool TryEquipPickup(WeaponData weaponData)
+        {
+            if (weaponData == null)
+                return false;
+
+            if (primaryWeapon == null)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private void EquipWeapon(
             WeaponController weapon
         )
