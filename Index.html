@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StrikeZone: Zero Hour</title>
+    <style>
+        :root {
+            --bg-obsidian: #0F111A;
+            --cyber-cyan: #00F0FF;
+            --solar-amber: #FF9900;
+            --ui-dark: rgba(15, 17, 26, 0.85);
+            --danger-red: #FF3344;
+            --success-green: #00FF66;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-obsidian);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #ffffff;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #151824;
+        }
+
+        /* UI Overlays */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        /* HUD Top Bar */
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .player-status-card {
+            background: var(--ui-dark);
+            border-left: 4px solid var(--cyber-cyan);
+            padding: 10px 15px;
+            border-radius: 4px;
+            backdrop-filter: blur(8px);
+            min-width: 180px;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: var(--success-green);
+            width: 100%;
+            transition: width 0.2s ease;
+        }
+
+        .armor-fill {
+            height: 100%;
+            background: var(--cyber-cyan);
+            width: 100%;
+            transition: width 0.2s ease;
+        }
+
+        .match-info {
+            background: var(--ui-dark);
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-align: center;
+            border-top: 2px solid var(--solar-amber);
+            backdrop-filter: blur(8px);
+        }
+
+        .match-timer {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--solar-amber);
+            letter-spacing: 1px;
+        }
+
+        .zone-warning {
+            font-size: 0.75rem;
+            color: var(--danger-red);
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        /* HUD Bottom Bar */
+        .hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+        }
+
+        .weapon-card {
+            background: var(--ui-dark);
+            border-right: 4px solid var(--solar-amber);
+            padding: 10px 20px;
+            border-radius: 4px;
+            backdrop-filter: blur(8px);
+            text-align: right;
+        }
+
+        .weapon-name {
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #ddd;
+        }
+
+        .ammo-count {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--solar-amber);
+        }
+
+        /* Ability Buttons */
+        .ability-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .ability-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--ui-dark);
+            border: 2px solid var(--cyber-cyan);
+            color: var(--cyber-cyan);
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.75rem;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0,240,255,0.2);
+            cursor: pointer;
+        }
+
+        .ability-btn.ultimate {
+            border-color: var(--solar-amber);
+            color: var(--solar-amber);
+            box-shadow: 0 0 10px rgba(255,153,0,0.3);
+        }
+
+        /* Virtual Controls */
+        .joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 130px;
+            height: 130px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            pointer-events: auto;
+            touch-action: none;
+        }
+
+        .joystick-knob {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 240, 255, 0.4);
+            border: 2px solid var(--cyber-cyan);
+            border-radius: 50%;
+            pointer-events: none;
+            transition: transform 0.05s linear;
+        }
+
+        .action-buttons {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: grid;
+            grid-template-columns: repeat(2, 70px);
+            gap: 15px;
+            pointer-events: auto;
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: var(--ui-dark);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: #fff;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8rem;
+            backdrop-filter: blur(5px);
+            cursor: pointer;
+        }
+
+        .action-btn.fire {
+            background: rgba(255, 153, 0, 0.3);
+            border-color: var(--solar-amber);
+            color: var(--solar-amber);
+            grid-column: span 2;
+            width: 155px;
+            border-radius: 35px;
+        }
+
+        /* Menu Screens */
+        .menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, #1a1e2f 0%, var(--bg-obsidian) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        .logo-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #ffffff;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(0,240,255,0.6);
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .logo-subtitle {
+            font-size: 1rem;
+            color: var(--cyber-cyan);
+            letter-spacing: 4px;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+        }
+
+        .menu-btn {
+            background: linear-gradient(135deg, var(--cyber-cyan) 0%, #0088ff 100%);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 20px rgba(0,240,255,0.4);
+            transition: transform 0.1s ease;
+            margin-bottom: 15px;
+        }
+
+        .menu-btn:active {
+            transform: scale(0.95);
+        }
+
+        .menu-btn.secondary {
+            background: transparent;
+            border: 2px solid rgba(255,255,255,0.2);
+            color: #fff;
+            box-shadow: none;
+        }
+
+        .class-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .class-card {
+            background: var(--ui-dark);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 15px;
+            width: 130px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .class-card.selected {
+            border-color: var(--cyber-cyan);
+            background: rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0,240,255,0.3);
+        }
+
+        .class-card h4 {
+            margin: 0 0 5px 0;
+            color: var(--cyber-cyan);
+            font-size: 0.95rem;
+        }
+
+        .class-card p {
+            margin: 0;
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+
+        /* Notifications & Log */
+        #notification-banner {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            border: 1px solid var(--solar-amber);
+            color: var(--solar-amber);
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 50;
+        }
+
+        /* Utility classes */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Canvas for Game Rendering -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Notification Banner -->
+        <div id="notification-banner">ZONE COLLAPSE INCOMING</div>
+
+        <!-- Main Lobby Menu -->
+        <div id="lobby-screen" class="menu-overlay">
+            <div class="logo-title">StrikeZone</div>
+            <div class="logo-subtitle">Zero Hour</div>
+
+            <div style="color: #bbb; font-size: 0.85rem; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">Select Specialist Class</div>
+            
+            <div class="class-selector">
+                <div class="class-card selected" onclick="selectClass('Assault', this)">
+                    <h4>Vesper</h4>
+                    <p>Assault<br>Phase-Dash</p>
+                </div>
+                <div class="class-card" onclick="selectClass('Recon', this)">
+                    <h4>Apex</h4>
+                    <p>Recon<br>Holo-Decoy</p>
+                </div>
+                <div class="class-card" onclick="selectClass('Engineer', this)">
+                    <h4>Forge</h4>
+                    <p>Engineer<br>Aegis Wall</p>
+                </div>
+                <div class="class-card" onclick="selectClass('Medic', this)">
+                    <h4>Amara</h4>
+                    <p>Medic<br>Nano-Mist</p>
+                </div>
+            </div>
+
+            <button class="menu-btn" onclick="startMatch()">Deploy Match</button>
+            <button class="menu-btn secondary" onclick="openSettings()">Settings & Controls</button>
+        </div>
+
+        <!-- Post Match Results Screen -->
+        <div id="results-screen" class="menu-overlay hidden">
+            <div class="logo-title" style="font-size: 2rem;">Match Results</div>
+            <div class="logo-subtitle" id="result-placement">Squad Placement: #1</div>
+
+            <div style="background: var(--ui-dark); padding: 20px; border-radius: 8px; width: 300px; margin-bottom: 30px; border-left: 4px solid var(--success-green);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #aaa;">Eliminations:</span>
+                    <span id="res-kills" style="font-weight: bold;">0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #aaa;">Reputation Score:</span>
+                    <span id="res-rep" style="font-weight: bold; color: var(--cyber-cyan);">+0 XP</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #aaa;">Total Earned XP:</span>
+                    <span id="res-xp" style="font-weight: bold; color: var(--solar-amber);">0 XP</span>
+                </div>
+            </div>
+
+            <button class="menu-btn" onclick="returnToLobby()">Return to Lobby</button>
+        </div>
+
+        <!-- In-Game HUD Screen -->
+        <div id="hud-screen" class="screen hidden">
+            <div class="hud-top">
+                <div class="player-status-card">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: bold;">
+                        <span id="hud-class-name">VESPER</span>
+                        <span style="color: var(--success-green);">100%</span>
+                    </div>
+                    <div class="bar-container"><div id="health-bar" class="health-fill"></div></div>
+                    <div class="bar-container"><div id="armor-bar" class="armor-fill"></div></div>
+                </div>
+
+                <div class="match-info">
+                    <div id="match-timer" class="match-timer">10:00</div>
+                    <div id="zone-warning" class="zone-warning">ZONE ACTIVE (38 PLAYERS ALIVE)</div>
+                </div>
+
+                <div class="ability-container interactive">
+                    <div class="ability-btn" onclick="triggerTactical()">TACK<br>ABIL</div>
+                    <div class="ability-btn ultimate" onclick="triggerUltimate()">ULT<br>BOOST</div>
+                </div>
+            </div>
+
+            <div class="hud-bottom">
+                <div class="joystick-zone interactive" id="joystickZone">
+                    <div class="joystick-knob" id="joystickKnob"></div>
+                </div>
+
+                <div class="weapon-card">
+                    <div id="weapon-name" class="weapon-name">SOLARA AR-7</div>
+                    <div id="ammo-count" class="ammo-count">30 / 90</div>
+                </div>
+
+                <div class="action-buttons interactive">
+                    <div class="action-btn" onclick="playerCrouch()">CRCH</div>
+                    <div class="action-btn" onclick="playerReload()">RELOAD</div>
+                    <div class="action-btn fire" onclick="playerFire()">FIRE WEAPON</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME ENGINE & STATE MANAGEMENT ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let gameState = 'LOBBY'; // LOBBY, PLAYING, RESULTS
+        let selectedSpecialist = 'Assault';
+
+        // Player State
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: 16,
+            speed: 3.5,
+            health: 100,
+            maxHealth: 100,
+            armor: 100,
+            maxArmor: 100,
+            angle: 0,
+            ammo: 30,
+            maxAmmo: 30,
+            reserves: 90,
+            kills: 0,
+            reputation: 0,
+            xp: 0
+        };
+
+        // Match Environment State
+        let matchTime = 600; // 10 minutes in seconds
+        let activeZoneRadius = 800;
+        let zoneCenter = { x: 2000, y: 2000 };
+        let camera = { x: 0, y: 0 };
+        let activeEnemies = [];
+        let bullets = [];
+        let destructibles = [];
+        let particles = [];
+
+        // Input Tracking (Virtual Joystick)
+        const joystick = {
+            active: false,
+            touchId: null,
+            startX: 0,
+            startY: 0,
+            x: 0,
+            y: 0,
+            normX: 0,
+            normY: 0
+        };
+
+        // --- NAVIGATION & MENU FUNCTIONS ---
+        function selectClass(className, element) {
+            selectedSpecialist = className;
+            document.querySelectorAll('.class-card').forEach(card => card.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+
+        function startMatch() {
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('hud-screen').classList.remove('hidden');
+            document.getElementById('hud-class-name').innerText = selectedSpecialist.toUpperCase();
+            
+            // Reset Match Variables
+            player.health = 100;
+            player.armor = 100;
+            player.ammo = 30;
+            player.kills = 0;
+            player.reputation = 0;
+            matchTime = 600;
+            activeZoneRadius = 1200;
+
+            generateMap();
+            gameState = 'PLAYING';
+        }
+
+        function returnToLobby() {
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            gameState = 'LOBBY';
+        }
+
+        function triggerTactical() {
+            showNotification(`${selectedSpecialist.toUpperCase()} TACTICAL ABILITY DEPLOYED`);
+            player.reputation += 75;
+        }
+
+        function triggerUltimate() {
+            showNotification(`${selectedSpecialist.toUpperCase()} ULTIMATE OVERCLOCK ACTIVE`);
+            player.armor = player.maxArmor;
+            player.reputation += 150;
+        }
+
+        function playerReload() {
+            if (player.reserves > 0 && player.ammo < player.maxAmmo) {
+                let needed = player.maxAmmo - player.ammo;
+                let take = Math.min(needed, player.reserves);
+                player.ammo += take;
+                player.reserves -= take;
+                updateHUD();
+            }
+        }
+
+        function playerCrouch() {
+            showNotification("TACTICAL CROUCH TOGGLED");
+        }
+
+        function showNotification(text) {
+            const banner = document.getElementById('notification-banner');
+            banner.innerText = text;
+            banner.style.opacity = '1';
+            setTimeout(() => {
+                banner.style.opacity = '0';
+            }, 2500);
+        }
+
+        // --- MAP & WORLD GENERATION ---
+        function generateMap() {
+            activeEnemies = [];
+            destructibles = [];
+            
+            // Spawn AI Enemies across Aethelgard Prime
+            for (let i = 0; i < 15; i++) {
+                activeEnemies.push({
+                    x: (Math.random() - 0.5) * 2000 + player.x,
+                    y: (Math.random() - 0.5) * 2000 + player.y,
+                    radius: 14,
+                    health: 60,
+                    speed: 1.5,
+                    color: '#FF3344'
+                });
+            }
+
+            // Spawn Destructible Barricades
+            for (let i = 0; i < 20; i++) {
+                destructibles.push({
+                    x: (Math.random() - 0.5) * 1800 + player.x,
+                    y: (Math.random() - 0.5) * 1800 + player.y,
+                    width: 60,
+                    height: 20,
+                    health: 150,
+                    destroyed: false
+                });
+            }
+        }
+
+        // --- COMBAT & WEAPON ACTIONS ---
+        function playerFire() {
+            if (player.ammo <= 0) {
+                playerReload();
+                return;
+            }
+
+            player.ammo--;
+            updateHUD();
+
+            // Spawn bullet heading towards aim angle
+            bullets.push({
+                x: player.x,
+                y: player.y,
+                vx: Math.cos(player.angle) * 12,
+                vy: Math.sin(player.angle) * 12,
+                range: 600,
+                dist: 0
+            });
+        }
+
+        // --- VIRTUAL JOYSTICK HANDLERS ---
+        const joystickZone = document.getElementById('joystickZone');
+        const joystickKnob = document.getElementById('joystickKnob');
+
+        joystickZone.addEventListener('touchstart', (e) => {
+            const touch = e.targetTouches[0];
+            joystick.active = true;
+            joystick.touchId = touch.identifier;
+            const rect = joystickZone.getBoundingClientRect();
+            joystick.startX = rect.left + rect.width / 2;
+            joystick.startY = rect.top + rect.height / 2;
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!joystick.active) return;
+            for (let i = 0; i < e.targetTouches.length; i++) {
+                const touch = e.targetTouches[i];
+                if (touch.identifier === joystick.touchId) {
+                    const dx = touch.clientX - joystick.startX;
+                    const dy = touch.clientY - joystick.startY;
+                    const dist = Math.min(50, Math.hypot(dx, dy));
+                    const angle = Math.atan2(dy, dx);
+
+                    joystick.normX = Math.cos(angle) * (dist / 50);
+                    joystick.normY = Math.sin(angle) * (dist / 50);
+
+                    joystickKnob.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', (e) => {
+            if (!joystick.active) return;
+            let stillActive = false;
+            for (let i = 0; i < e.targetTouches.length; i++) {
+                if (e.targetTouches[i].identifier === joystick.touchId) stillActive = true;
+            }
+            if (!stillActive) {
+                joystick.active = false;
+                joystick.normX = 0;
+                joystick.normY = 0;
+                joystickKnob.style.transform = `translate(0px, 0px)`;
+            }
+        });
+
+        // --- GAME LOOP & RENDERING ---
+        let lastTime = performance.now();
+
+        function gameLoop(timestamp) {
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            if (gameState === 'PLAYING') {
+                update(dt);
+                render();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            // Match Timer countdown
+            matchTime -= dt;
+            if (matchTime <= 0) {
+                endMatch(true);
+                return;
+            }
+
+            // Shrink Zone
+            if (activeZoneRadius > 300) {
+                activeZoneRadius -= dt * 2;
+            }
+
+            // Update Player Position via Joystick
+            if (joystick.active) {
+                player.x += joystick.normX * player.speed;
+                player.y += joystick.normY * player.speed;
+                if (Math.hypot(joystick.normX, joystick.normY) > 0.1) {
+                    player.angle = Math.atan2(joystick.normY, joystick.normX);
+                }
+            }
+
+            // Camera follow player smoothly
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                b.dist += Math.hypot(b.vx, b.vy);
+
+                // Check collision with enemies
+                for (let j = activeEnemies.length - 1; j >= 0; j--) {
+                    let en = activeEnemies[j];
+                    if (Math.hypot(b.x - en.x, b.y - en.y) < en.radius + 4) {
+                        en.health -= 35;
+                        bullets.splice(i, 1);
+                        if (en.health <= 0) {
+                            activeEnemies.splice(j, 1);
+                            player.kills++;
+                            player.reputation += 100;
+                            showNotification("ENEMY ELIMINATED (+100 XP)");
+                        }
+                        break;
+                    }
+                }
+
+                if (i < bullets.length && b.dist > b.range) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update AI Enemies
+            activeEnemies.forEach(en => {
+                let dx = player.x - en.x;
+                let dy = player.y - en.y;
+                let dist = Math.hypot(dx, dy);
+                if (dist < 350) {
+                    en.x += (dx / dist) * en.speed;
+                    en.y += (dy / dist) * en.speed;
+
+                    // Enemy attack player if close
+                    if (dist < 25) {
+                        player.health -= dt * 15;
+                        if (player.health <= 0) {
+                            endMatch(false);
+                        }
+                    }
+                }
+            });
+
+            updateHUDValues();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // Draw Grid Background (Aethelgard Prime Industrial Sector)
+            ctx.strokeStyle = '#1e2438';
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            let startX = Math.floor(camera.x / gridSize) * gridSize;
+            let startY = Math.floor(camera.y / gridSize) * gridSize;
+
+            for (let x = startX; x < startX + canvas.width + gridSize * 2; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, camera.y);
+                ctx.lineTo(x, camera.y + canvas.height + gridSize);
+                ctx.stroke();
+            }
+            for (let y = startY; y < startY + canvas.height + gridSize * 2; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(camera.x, y);
+                ctx.lineTo(camera.x + canvas.width + gridSize, y);
+                ctx.stroke();
+            }
+
+            // Draw Shrinking Energy Zone Boundary
+            ctx.strokeStyle = '#FF9900';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(zoneCenter.x, zoneCenter.y, activeZoneRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw Destructibles / Barricades
+            destructibles.forEach(box => {
+                if (!box.destroyed) {
+                    ctx.fillStyle = '#3a4466';
+                    ctx.fillRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
+                    ctx.strokeStyle = '#00F0FF';
+                    ctx.strokeRect(box.x - box.width/2, box.y - box.height/2, box.width, box.height);
+                }
+            });
+
+            // Draw AI Enemies
+            activeEnemies.forEach(en => {
+                ctx.fillStyle = en.color;
+                ctx.beginPath();
+                ctx.arc(en.x, en.y, en.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // Draw Bullets
+            ctx.fillStyle = '#00F0FF';
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw Player Specialist
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+
+            // Body
+            ctx.fillStyle = '#00F0FF';
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Weapon barrel indicator
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, -3, player.radius + 8, 6);
+
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        function updateHUDValues() {
+            // Format match timer
+            let mins = Math.floor(matchTime / 60);
+            let secs = Math.floor(matchTime % 60);
+            document.getElementById('match-timer').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+            // Update Health / Armor Bars
+            document.getElementById('health-bar').style.width = `${Math.max(0, (player.health / player.maxHealth) * 100)}%`;
+            document.getElementById('armor-bar').style.width = `${Math.max(0, (player.armor / player.maxArmor) * 100)}%`;
+            document.getElementById('ammo-count').innerText = `${player.ammo} / ${player.reserves}`;
+        }
+
+        function endMatch(victory) {
+            gameState = 'RESULTS';
+            document.getElementById('hud-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.remove('hidden');
+
+            document.getElementById('result-placement').innerText = victory ? "Squad Placement: #1 (VICTORY)" : "Squad Placement: #4 (ELIMINATED)";
+            document.getElementById('res-kills').innerText = player.kills;
+            document.getElementById('res-rep').innerText = `+${player.reputation} XP`;
+            
+            let totalXP = player.kills * 150 + player.reputation + (victory ? 1000 : 300);
+            document.getElementById('res-xp').innerText = `${totalXP} XP`;
+        }
+
+        // Start request animation loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
